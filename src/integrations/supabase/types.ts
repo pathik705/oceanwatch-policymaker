@@ -14,7 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      policies: {
+        Row: {
+          created_at: string
+          description: string | null
+          document_url: string | null
+          entities: Json | null
+          id: string
+          jurisdiction: string | null
+          key_points: string[] | null
+          policy_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          document_url?: string | null
+          entities?: Json | null
+          id?: string
+          jurisdiction?: string | null
+          key_points?: string[] | null
+          policy_type: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          document_url?: string | null
+          entities?: Json | null
+          id?: string
+          jurisdiction?: string | null
+          key_points?: string[] | null
+          policy_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      policy_matches: {
+        Row: {
+          created_at: string
+          id: string
+          incident_id: string
+          match_reason: string | null
+          policy_id: string
+          relevance_score: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          incident_id: string
+          match_reason?: string | null
+          policy_id: string
+          relevance_score?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          incident_id?: string
+          match_reason?: string | null
+          policy_id?: string
+          relevance_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_matches_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "pollution_incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_matches_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pollution_incidents: {
+        Row: {
+          ai_analysis: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          latitude: number | null
+          longitude: number | null
+          pollution_type: string
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          pollution_type: string
+          severity?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          pollution_type?: string
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          organization: string | null
+          role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          organization?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          organization?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
