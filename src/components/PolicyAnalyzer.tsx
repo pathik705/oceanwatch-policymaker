@@ -94,7 +94,7 @@ const PolicyAnalyzer = () => {
     }
   };
 
-  const simulateAnalysis = async () => {
+  const performAnalysis = async () => {
     if (!analysisQuery && !uploadedDoc) {
       toast({
         title: "Input Required",
@@ -107,60 +107,42 @@ const PolicyAnalyzer = () => {
     setIsAnalyzing(true);
     setAnalysisProgress(0);
 
-    const steps = [
-      { progress: 20, message: "Processing document with NLP..." },
-      { progress: 40, message: "Extracting key entities..." },
-      { progress: 60, message: "Matching against policy database..." },
-      { progress: 80, message: "Analyzing compliance gaps..." },
-      { progress: 100, message: "Generating recommendations..." },
-    ];
-
-    for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setAnalysisProgress(step.progress);
-    }
-
-    // Mock analysis results
-    const mockMatches: PolicyMatch[] = [
-      {
-        document: policyDatabase[0],
-        matchedSections: ["Article 3 - Discharge Prohibitions", "Annex V - Plastic Waste"],
-        complianceStatus: "violation",
-        recommendations: [
-          "Immediate cessation of plastic discharge required",
-          "Implement waste management plan per MARPOL guidelines",
-          "Install reception facilities at nearest port"
-        ]
-      },
-      {
-        document: policyDatabase[1], 
-        matchedSections: ["Article 8 - Good Environmental Status", "Descriptor 10 - Marine Litter"],
-        complianceStatus: "unclear",
-        recommendations: [
-          "Conduct detailed environmental impact assessment",
-          "Align monitoring protocols with EU standards",
-          "Submit compliance report to relevant authorities"
-        ]
-      },
-      {
-        document: policyDatabase[2],
-        matchedSections: ["Section 402 - NPDES Permits", "Section 311 - Oil Spill Prevention"],
-        complianceStatus: "compliant",
-        recommendations: [
-          "Maintain current compliance standards",
-          "Consider voluntary enhancement measures",
-          "Regular monitoring and reporting recommended"
-        ]
+    try {
+      // Import the ML analysis functions
+      const { analyzeText, extractTextFromFile } = await import('@/utils/mlAnalysis');
+      
+      let textToAnalyze = analysisQuery;
+      
+      // If document uploaded, extract text first
+      if (uploadedDoc) {
+        textToAnalyze = await extractTextFromFile(uploadedDoc);
+        if (analysisQuery) {
+          textToAnalyze = `${analysisQuery}\n\n${textToAnalyze}`;
+        }
       }
-    ];
+      
+      // Perform real ML analysis
+      const analysisResults = await analyzeText(
+        textToAnalyze,
+        (progress) => setAnalysisProgress(progress)
+      );
 
-    setPolicyMatches(mockMatches);
-    setIsAnalyzing(false);
-    
-    toast({
-      title: "Analysis Complete",
-      description: `Found ${mockMatches.length} relevant policy matches`,
-    });
+      setPolicyMatches(analysisResults);
+      
+      toast({
+        title: "Analysis Complete",
+        description: `Found ${analysisResults.length} relevant policy matches using AI analysis.`,
+      });
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      toast({
+        title: "Analysis Failed", 
+        description: error instanceof Error ? error.message : "Failed to analyze content",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const getComplianceColor = (status: string) => {
@@ -251,7 +233,7 @@ const PolicyAnalyzer = () => {
           </Tabs>
 
           <Button 
-            onClick={simulateAnalysis} 
+            onClick={performAnalysis} 
             disabled={isAnalyzing}
             className="w-full bg-gradient-ocean"
           >

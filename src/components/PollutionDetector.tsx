@@ -56,55 +56,38 @@ const PollutionDetector = () => {
     }
   };
 
-  const simulateAnalysis = async () => {
-    if (!imageFile) return;
+  const analyzeImage = async () => {
+    if (!imageFile || !imagePreview) return;
 
     setIsAnalyzing(true);
     setAnalysisProgress(0);
 
-    // Simulate AI processing
-    const steps = [
-      { progress: 20, message: "Preprocessing image..." },
-      { progress: 45, message: "Running CNN detection..." },
-      { progress: 70, message: "Analyzing pollution patterns..." },
-      { progress: 90, message: "Generating report..." },
-      { progress: 100, message: "Analysis complete!" },
-    ];
+    try {
+      // Import the ML analysis function
+      const { analyzeImage: performImageAnalysis } = await import('@/utils/mlAnalysis');
+      
+      // Perform real ML analysis
+      const analysisResults = await performImageAnalysis(
+        imagePreview,
+        (progress) => setAnalysisProgress(progress)
+      );
 
-    for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setAnalysisProgress(step.progress);
+      setResults(analysisResults);
+      
+      toast({
+        title: "Analysis Complete",
+        description: `Detected ${analysisResults.length} potential pollution sources using AI vision models.`,
+      });
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
     }
-
-    // Mock detection results
-    const mockResults: DetectionResult[] = [
-      {
-        type: "Plastic Debris",
-        confidence: 0.94,
-        location: { x: 120, y: 80, width: 150, height: 100 },
-        severity: "high"
-      },
-      {
-        type: "Oil Contamination",
-        confidence: 0.87,
-        location: { x: 300, y: 200, width: 200, height: 120 },
-        severity: "critical"
-      },
-      {
-        type: "Chemical Waste",
-        confidence: 0.76,
-        location: { x: 50, y: 300, width: 180, height: 90 },
-        severity: "medium"
-      }
-    ];
-
-    setResults(mockResults);
-    setIsAnalyzing(false);
-    
-    toast({
-      title: "Analysis Complete",
-      description: `Detected ${mockResults.length} pollution sources with high confidence.`,
-    });
   };
 
   const getSeverityColor = (severity: string) => {
@@ -182,7 +165,7 @@ const PollutionDetector = () => {
                     </div>
                   )}
                 </div>
-                <Button onClick={simulateAnalysis} disabled={isAnalyzing} className="bg-gradient-ocean">
+                <Button onClick={analyzeImage} disabled={isAnalyzing} className="bg-gradient-ocean">
                   <Zap className="w-4 h-4 mr-2" />
                   {isAnalyzing ? "Analyzing..." : "Analyze Image"}
                 </Button>
