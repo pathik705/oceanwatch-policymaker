@@ -55,17 +55,23 @@ async function getImageClassifier() {
 async function getTextClassifier() {
   if (!textClassifier) {
     try {
+      // Use a model with better ONNX support
       textClassifier = await pipeline(
-        'zero-shot-classification',
-        'facebook/bart-large-mnli',
+        'text-classification',
+        'distilbert-base-uncased-finetuned-sst-2-english',
         { device: 'webgpu' }
       );
     } catch (error) {
       console.warn('WebGPU not available, falling back to CPU');
-      textClassifier = await pipeline(
-        'zero-shot-classification',
-        'facebook/bart-large-mnli'
-      );
+      try {
+        textClassifier = await pipeline(
+          'text-classification',
+          'distilbert-base-uncased-finetuned-sst-2-english'
+        );
+      } catch (fallbackError) {
+        console.error('Failed to load text classifier:', fallbackError);
+        throw new Error('Unable to load text analysis model');
+      }
     }
   }
   return textClassifier;
@@ -75,17 +81,23 @@ async function getTextClassifier() {
 async function getSentimentAnalyzer() {
   if (!sentimentAnalyzer) {
     try {
+      // Use the same reliable model for consistency
       sentimentAnalyzer = await pipeline(
         'sentiment-analysis',
-        'cardiffnlp/twitter-roberta-base-sentiment-latest',
+        'distilbert-base-uncased-finetuned-sst-2-english',
         { device: 'webgpu' }
       );
     } catch (error) {
       console.warn('WebGPU not available, falling back to CPU');
-      sentimentAnalyzer = await pipeline(
-        'sentiment-analysis',
-        'cardiffnlp/twitter-roberta-base-sentiment-latest'
-      );
+      try {
+        sentimentAnalyzer = await pipeline(
+          'sentiment-analysis',
+          'distilbert-base-uncased-finetuned-sst-2-english'
+        );
+      } catch (fallbackError) {
+        console.error('Failed to load sentiment analyzer:', fallbackError);
+        throw new Error('Unable to load sentiment analysis model');
+      }
     }
   }
   return sentimentAnalyzer;
@@ -177,27 +189,44 @@ export async function analyzeImage(imageUrl: string, onProgress?: (progress: num
 export async function analyzeText(text: string, onProgress?: (progress: number) => void): Promise<PolicyMatch[]> {
   try {
     onProgress?.(20);
+    console.log('Starting text analysis for:', text.substring(0, 100) + '...');
+    
     const classifier = await getTextClassifier();
-    const sentimentAnalyzer = await getSentimentAnalyzer();
+    console.log('Text classifier loaded successfully');
     
     onProgress?.(40);
     
-    // Classify pollution type
-    const pollutionLabels = [
-      'plastic pollution',
-      'oil spill',
-      'chemical contamination',
-      'marine debris',
-      'industrial waste',
-      'sewage discharge'
-    ];
-    
-    const pollutionClassification = await classifier(text, pollutionLabels) as any;
+    // Classify sentiment first (simpler classification)
+    const sentiment = await classifier(text) as any[];
+    console.log('Sentiment analysis completed:', sentiment);
     
     onProgress?.(60);
     
-    // Analyze sentiment and severity
-    const sentiment = await sentimentAnalyzer(text) as any[];
+    // Determine pollution type based on keywords
+    const pollutionKeywords = {
+      'plastic pollution': ['plastic', 'microplastic', 'bottle', 'bag', 'debris'],
+      'oil spill': ['oil', 'spill', 'petroleum', 'crude', 'leak'],
+      'chemical contamination': ['chemical', 'toxic', 'contamination', 'pollutant'],
+      'marine debris': ['debris', 'trash', 'garbage', 'waste', 'litter'],
+      'industrial waste': ['industrial', 'factory', 'discharge', 'effluent'],
+      'sewage discharge': ['sewage', 'wastewater', 'runoff', 'drainage']
+    };
+    
+    let detectedType = 'general pollution';
+    let confidence = 0.5;
+    
+    for (const [type, keywords] of Object.entries(pollutionKeywords)) {
+      const matchCount = keywords.filter(keyword => 
+        text.toLowerCase().includes(keyword)
+      ).length;
+      if (matchCount > 0) {
+        detectedType = type;
+        confidence = Math.min(0.9, 0.5 + (matchCount * 0.1));
+        break;
+      }
+    }
+    
+    console.log('Pollution type detected:', detectedType, 'with confidence:', confidence);
     
     onProgress?.(80);
     
@@ -239,14 +268,14 @@ export async function analyzeText(text: string, onProgress?: (progress: number) 
     ];
     
     // Generate policy matches based on classification
-    const topPollutionType = pollutionClassification.labels[0];
-    const confidence = pollutionClassification.scores[0];
+    const topPollutionType = detectedType;
+    const analysisConfidence = confidence;
     
     const matches: PolicyMatch[] = policyDatabase.map((policy, index) => {
-      const relevanceScore = Math.max(0.6, confidence * policy.relevanceScore);
+      const relevanceScore = Math.max(0.6, analysisConfidence * policy.relevanceScore);
       
       let complianceStatus: "compliant" | "violation" | "unclear" = "unclear";
-      if (confidence > 0.8) {
+      if (analysisConfidence > 0.8) {
         complianceStatus = index === 0 ? "violation" : index === 1 ? "unclear" : "compliant";
       }
       
